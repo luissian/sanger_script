@@ -1,10 +1,9 @@
 #!/bin/bash
 ########## Configuration settings  ########
-INPUT_DIRECTORY="/processing_Data/sanger_seq"
 PATH_SANGER_FOLDER="/processing_Data/sanger_seq"
 SHARED_FOLDER="/processing_Data/sanger_seq_users"
-SANGER_SCRIPT="/processing_Data/sanger_process/sanger_script-v2.sh"
-PROCESSED_FILE_DIRECTORY="/processing_Data/sanger_process"
+SANGER_SCRIPT="/home/smonzon/Documents/desarrollo/sanger_script/sanger_script.sh"
+PROCESSED_FILE_DIRECTORY="/home/smonzon/Documents/sanger_script"
 PROCESSED_FILE_NAME="run_processed"
 
 time=$(date +%T-%m%d%y)
@@ -33,7 +32,7 @@ while read -r line ; do
 		    continue
 		fi
 		time=$(date +%T-%m%d%y)
-		echo "Executing script $time: $SANGER_SCRIPT -f $INPUT_DIRECTORY/$bn_file -r $PATH_SANGER_FOLDER/$path_folder  -o $SHARED_FOLDER"
+		echo "Executing script $time: $SANGER_SCRIPT -f $PATH_SANGER_FOLDER/$bn_file -r $PATH_SANGER_FOLDER/$path_folder  -o $SHARED_FOLDER"
 		$SANGER_SCRIPT -f $INPUT_DIRECTORY/$bn_file -r $PATH_SANGER_FOLDER/$path_folder  -o $SHARED_FOLDER
 	else
 		echo "Run already processed."
