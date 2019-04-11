@@ -1,0 +1,5 @@
+To: bioinformatica@isciii.es
+Subject: sendmail test two
+From: smonzon@isciii.es
+
+And here goes the e-mail body, test test test..
