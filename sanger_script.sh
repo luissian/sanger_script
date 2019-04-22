@@ -84,9 +84,9 @@ error(){
 script_dir=$(dirname $(readlink -f $0))
 cwd="$(pwd)"
 is_verbose=false
-samba_share_template=/etc/samba/template.conf
-samba_share_dir=/etc/samba/shares
-template_email=/processing_Data/sanger_process/template_mail.htm
+samba_share_template=/home/smonzon/Documents/desarrollo/sanger_script/samba/template.conf
+samba_share_dir=/home/smonzon/Documents/desarrollo/sanger_script/samba/shares
+template_email=/home/smonzon/Documents/desarrollo/sanger_script/template_mail.htm
 #SET COLORS
 
 YELLOW='\033[0;33m'
