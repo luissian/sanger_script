@@ -253,7 +253,7 @@ for folder in $(ls tmp | grep $run_name);do
 	users=$(echo $folder | cut -d "_" -f3- | sed 's/_/,/g')
 	echo "Folder $folder is accesible for users: $users"
 	sed "s/##FOLDER##/$folder/g" $SAMBA_SHARE_TEMPLATE | sed "s/##USERS##/$users/g" > $TMP_SAMBA_SHARE_DIR/$folder".conf"
-	echo "include = $samba_share_dir/${folder}.conf" >> $TMP_SAMBA_SHARE_DIR/includes.conf
+	echo "include = $REMOTE_SAMBA_SHARE_DIR/${folder}.conf" >> $TMP_SAMBA_SHARE_DIR/includes.conf
 
 	emails=$(cat tmp/$folder/user_allowed.txt)
 
@@ -261,7 +261,7 @@ for folder in $(ls tmp | grep $run_name);do
 	echo -e "$folder\t$date\t$users\t$number_files" >> $script_dir/samba_folders
 
 	echo "Sending email"
-	sed "s/##FOLDER##/$folder/g" $template_email | sed "s/##USERS##/$users/g" | sed "s/##MAILS##/$emails/g" | sed "s/##RUN_NAME##/$run_name/g"> tmp/mail.tmp
+	sed "s/##FOLDER##/$folder/g" $TEMPLATE_EMAIL | sed "s/##USERS##/$users/g" | sed "s/##MAILS##/$emails/g" | sed "s/##RUN_NAME##/$run_name/g"> tmp/mail.tmp
 	## Send mail to users
 	sendmail -t < tmp/mail.tmp
 
@@ -273,10 +273,10 @@ for folder in $(ls tmp | grep $run_name);do
 done
 # Copy shared configuration files to remote
 echo "Copying samba shares configuration to remote filesystem server"
-rsync -rlv $TMP_SHARE_DIR $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/ || error ${LINENO} $(basename $0) "Shared samba config files couldn't be copied to remote filesystem server."
+rsync -rlv $TMP_SAMBA_SHARE_DIR/ $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/ || error ${LINENO} $(basename $0) "Shared samba config files couldn't be copied to remote filesystem server."
 
 echo "Restarting samba service"
 ## samba service restart
-ssh $REMOTE_USER@REMOTE_SAMBA_SERVER 'service smb restart'
+ssh $REMOTE_USER@$REMOTE_SAMBA_SERVER 'service smb restart'
 
 echo "File $sanger_file process has been completed"
