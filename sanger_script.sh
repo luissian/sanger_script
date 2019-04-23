@@ -213,21 +213,17 @@ while read -r line ;do
 
     well=$(echo $line | cut -d "," -f 1)
     sample_name=$(echo $line | cut -d "," -f 2)
-	echo $sample_name
-##  if [ ! -d $output_dir/$date"_"$run_name"_"$allowed_users ]; then
-##        mkdir -p $output_dir/$date"_"$run_name"_"$allowed_users
-##        echo "Creating directory for $date"_"$run_name"_"$allowed_users"
-##	echo $emails > $output_dir/$date"_"$run_name"_"$allowed_users/user_allowed.txt
-##    fi
+
     folder_name=tmp/$date"_"$run_name"_"$allowed_users
     if [ ! -d $folder_name ]; then
         mkdir -p $folder_name
         echo "Creating directory for $date"_"$run_name"_"$allowed_users"
         echo $emails > $folder_name/user_allowed.txt
     fi
-	echo $run_folder
-	echo "Copying files to temporary user share folder"
+
+	echo "Copying files for $sample_name from $run_folder to temporary user share folder"
     rsync -rlv $run_folder/*$sample_name* $folder_name || error ${LINENO} $(basename $0) "Sequencing files couldn't be copied to tmp folder"
+
     if [ ! -d $SAMBA_TRANSFERED_FOLDERS ]; then
 		mkdir -p $SAMBA_TRANSFERED_FOLDERS
     fi
