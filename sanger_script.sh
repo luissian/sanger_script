@@ -254,8 +254,7 @@ for folder in $(ls tmp | grep $run_name);do
 	echo "Folder $folder is accesible for users: $users"
 	sed "s/##FOLDER##/$folder/g" $SAMBA_SHARE_TEMPLATE | sed "s/##USERS##/$users/g" > $TMP_SAMBA_SHARE_DIR/$folder".conf"
 	echo "include = $samba_share_dir/${folder}.conf" >> $TMP_SAMBA_SHARE_DIR/includes.conf
-	emails=$(cat tmp/$folder/user_allowed.txt)
-	#scp lchapado@barbarroja.isciii.es:$SAMBA_SHARE_DIR/$folder".conf" /etc/samba/
+
 	emails=$(cat tmp/$folder/user_allowed.txt)
 
 	number_files=$( ls -t1 tmp/$folder | wc -l )
@@ -264,12 +263,12 @@ for folder in $(ls tmp | grep $run_name);do
 	echo "Sending email"
 	sed "s/##FOLDER##/$folder/g" $template_email | sed "s/##USERS##/$users/g" | sed "s/##MAILS##/$emails/g" | sed "s/##RUN_NAME##/$run_name/g"> tmp/mail.tmp
 	## Send mail to users
-	/usr/sbin/sendmail -t < tmp/mail.tmp
+	sendmail -t < tmp/mail.tmp
 
 	echo "mail sended"
 
 	echo "Deleting mail temp file"
-	rm tmp/mail.tmp
+	#rm tmp/mail.tmp
 
 done
 # Copy shared configuration files to remote
@@ -278,6 +277,6 @@ rsync -rlv $TMP_SHARE_DIR $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_
 
 echo "Restarting samba service"
 ## samba service restart
-pssh -A -H $REMOTE_USER@REMOTE_SAMBA_SERVER -o . '/sbin/service smb restart'
+ssh $REMOTE_USER@REMOTE_SAMBA_SERVER 'service smb restart'
 
 echo "File $sanger_file process has been completed"
