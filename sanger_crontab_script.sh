@@ -3,7 +3,7 @@
 PATH_SANGER_FOLDER="/home/smonzon/Documents/desarrollo/sanger_script/sanger_seq"
 REMOTE_SAMBA_SHARED_FOLDER="/home/smonzon/Documents/desarrollo/sanger_script/sanger_seq_users"
 SANGER_SCRIPT="/home/smonzon/Documents/desarrollo/sanger_script/sanger_script.sh"
-PROCESSED_FILE_DIRECTORY="/home/smonzon/Documents/sanger_script"
+PROCESSED_FILE_DIRECTORY="/home/smonzon/Documents/desarrollo/sanger_script"
 PROCESSED_FILE_NAME="run_processed"
 
 
@@ -11,7 +11,11 @@ time=$(date +%T-%m%d%y)
 echo "Initiating crontab - $time"
 
 proc_file="$PROCESSED_FILE_DIRECTORY/$PROCESSED_FILE_NAME"
-echo "$proc_file"
+if [ ! -f $proc_file ]; then
+	touch $proc_file
+	echo "Created $proc_file"
+fi
+
 
 files=$(ls -t1 $PATH_SANGER_FOLDER/*.txt)
 
@@ -23,7 +27,7 @@ if [[ $files == ''  ]]; then
 fi
 
 while read -r line ; do
-	if [ ! -d tmp]; then
+	if [ ! -d tmp ]; then
 	    mkdir -p tmp
 	fi
 	bn_file=$(basename $line)
@@ -40,7 +44,10 @@ while read -r line ; do
 	else
 		echo "Run already processed."
 	fi
+	# include the file into procesed file
+	echo "$bn_file" >> $proc_file
 	# Delete temporary folder
-	rm -rf tmp
+	#rm -rf tmp
 done <<<"$files"
-
+time=$(date +%T-%m%d%y)
+echo "End crontab - $time"
