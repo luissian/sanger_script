@@ -21,7 +21,7 @@ VERSION=0.0.2
 #
 #ACKNOWLEDGE: longops2getops.sh: https://gist.github.com/adamhotep/895cebf290e95e613c006afbffef09d7
 #
-#DESCRIPTION: Sanger_script split the data sequencing to allow each user 
+#DESCRIPTION: Sanger_script split the data sequencing to allow each user
 #            get access of the sample information
 #
 #
@@ -87,7 +87,7 @@ cwd="$(pwd)"
 is_verbose=false
 #### CONFIGURATION FILES ON LOCAL SERVER
 #
-# TEMPORARY DIRECTORY WHERE SHARED CONFIGURATION FILE ARE SAVED BEFORE COPYING TO REMOTE SERVER 
+# TEMPORARY DIRECTORY WHERE SHARED CONFIGURATION FILE ARE SAVED BEFORE COPYING TO REMOTE SERVER
 TMP_SAMBA_SHARE_DIR=/home/smonzon/Documents/desarrollo/sanger_script/tmp/shares
 #
 # LOCATION OF THE TEMPLATE FILE FOR CONFIG SAMBA SHARED FOLDERS
@@ -104,13 +104,13 @@ TEMPLATE_EMAIL=/home/smonzon/Documents/desarrollo/sanger_script/template_mail.ht
 #### CONFIGURATION FILES ON REMOTE SERVER
 #
 # DIRECTORY ON THE REMOTE SERVER, WHERE THE SHARED FILES WILL BE COPY
-REMOTE_SAMBA_SHARE_DIR=/home/smonzon/Documents/desarrollo/sanger_script/samba/shares
+REMOTE_SAMBA_SHARE_DIR=/etc/samba/shares
 #
 # USER USED FOR REMOTE LOGIN
-REMOTE_USER="bioinfo"
+REMOTE_USER="root"
 #
 # REMOTE SERVER WHERE TO COPY THE OUTPUT FILES
-REMOTE_SAMBA_SERVER="localhost"
+REMOTE_SAMBA_SERVER="barbarroja"
 
 #SET COLORS
 
@@ -225,24 +225,28 @@ while read -r line ;do
         echo "Creating directory for $date"_"$run_name"_"$allowed_users"
         echo $emails > $folder_name/user_allowed.txt
     fi
-    
+
     cp $run_folder/*$sample_name* $folder_name || error ${LINENO} $(basename $0) "Sequencing files couldn't be copied to tmp folder"
     if [ ! -d $SAMBA_TRANSFERED_FOLDERS ]; then
-	mkdir -p $SAMBA_TRANSFERED_FOLDERS
+		mkdir -p $SAMBA_TRANSFERED_FOLDERS
     fi
     touch $SAMBA_TRANSFERED_FOLDERS/$date"_"$run_name"_"$allowed_users
 #done < $sanger_file
 
 done <<<"$var_file"
 
-rsync -vr tmp/ $REMOTE_USER@$REMOTE_SAMBA_SERVER:$remote_ouput_dir/
+## Copy created shared folders to remote file system server
+rsync -vr tmp/ $REMOTE_USER@$REMOTE_SAMBA_SERVER:$remote_ouput_dir/ || error ${LINENO} $(basename $0) "Shared folders couldn't be copied to remote filesystem server."
 
 ## Create samba shares.
 if [ ! -d $TMP_SAMBA_SHARE_DIR ]; then
     mkdir -p $TMP_SAMBA_SHARE_DIR
 fi
-# fetch the remote Samba includes file 
-scp $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/includes.conf $TMP_SAMBA_SHARE_DIR 
+
+# fetch the remote Samba includes file
+echo "Fetching samba includes file from filesystem file server."
+scp $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/includes.conf $TMP_SAMBA_SHARE_DIR || error ${LINENO} $(basename $0) "Failed fetching of samba includes file"
+
 for folder in $(ls tmp | grep $run_name);do
 	echo "Processing folder: $folder"
 	users=$(echo $folder | cut -d "_" -f3- | sed 's/_/,/g')
@@ -252,26 +256,27 @@ for folder in $(ls tmp | grep $run_name);do
 	emails=$(cat tmp/$folder/user_allowed.txt)
 	#scp lchapado@barbarroja.isciii.es:$SAMBA_SHARE_DIR/$folder".conf" /etc/samba/
 	emails=$(cat tmp/$folder/user_allowed.txt)
-	## samba service restart
 
-	echo "Restarting samba service"
-	#/sbin/service smb restart
-
-	#number_files=$( ls -t1 $remote_output_dir/$folder | wc -l )
+	number_files=$( ls -t1 tmp/$folder | wc -l )
 	echo -e "$folder\t$date\t$users\t$number_files" >> $script_dir/samba_folders
-	echo "sending email"
+
+	echo "Sending email"
 	sed "s/##FOLDER##/$folder/g" $template_email | sed "s/##USERS##/$users/g" | sed "s/##MAILS##/$emails/g" | sed "s/##RUN_NAME##/$run_name/g"> tmp/mail.tmp
 	## Send mail to users
-	
 	/usr/sbin/sendmail -t < tmp/mail.tmp
 
 	echo "mail sended"
 
-	#echo "Deleting mail temp file"
-	#rm tmp/mail.tmp
+	echo "Deleting mail temp file"
+	rm tmp/mail.tmp
 
 done
-# copy shared configuration files to remote
-rsync -vr $TMP_SHARE_DIR $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/
+# Copy shared configuration files to remote
+echo "Copying samba shares configuration to remote filesystem server"
+rsync -rlv $TMP_SHARE_DIR $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/ || error ${LINENO} $(basename $0) "Shared samba config files couldn't be copied to remote filesystem server."
+
+echo "Restarting samba service"
+## samba service restart
+pssh -A -H $REMOTE_USER@REMOTE_SAMBA_SERVER -o . '/sbin/service smb restart'
 
 echo "File $sanger_file process has been completed"
