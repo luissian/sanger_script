@@ -203,11 +203,9 @@ while read -r line ;do
         printf "${RED}There are spaces in comment field ${NC}\n"
         continue
     fi
-    #IFS=':' read -r -a emails <<< "$comment"
     emails=$(echo $comment | sed 's/:/,/g')
     user_names=$(echo $comment | sed 's/@isciii.es//g' | sed 's/@externos.isciii.es//g')
 
-    #IFS=':' read -r -a users <<< "$comment"
     IFS=':' read -r -a users <<< "$user_names"
     allowed_users=$(join_by _ "${users[@]}")
 
@@ -228,7 +226,6 @@ while read -r line ;do
 		mkdir -p $SAMBA_TRANSFERED_FOLDERS
     fi
     touch $SAMBA_TRANSFERED_FOLDERS/$date"_"$run_name"_"$allowed_users
-#done < $sanger_file
 
 done <<<"$var_file"
 
@@ -267,6 +264,7 @@ for folder in $(ls tmp | grep $run_name);do
 	#rm tmp/mail.tmp
 
 done
+
 # Copy shared configuration files to remote
 echo "Copying samba shares configuration to remote filesystem server"
 rsync -rlv $TMP_SAMBA_SHARE_DIR/ $REMOTE_USER@$REMOTE_SAMBA_SERVER:$REMOTE_SAMBA_SHARE_DIR/ || error ${LINENO} $(basename $0) "Shared samba config files couldn't be copied to remote filesystem server."
