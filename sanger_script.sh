@@ -15,13 +15,14 @@ set -e
 #INSTITUTION:ISCIII
 #CENTRE:BU-ISCIII
 #AUTHOR: Sara Monzon (smonzon@isciii.es)
-#		 Luis Chapado (lchapado@isciii.es)
-VERSION=0.0.1
-#CREATED: 16 October 2018
+#	 Luis Chapado (lchapado@externos.isciii.es)
+VERSION=0.0.2
+#CREATED: 23 April 2019
 #
 #ACKNOWLEDGE: longops2getops.sh: https://gist.github.com/adamhotep/895cebf290e95e613c006afbffef09d7
 #
-#DESCRIPTION: plasmidID is a computational pipeline tha reconstruct and annotate the most likely plasmids present in one sample
+#DESCRIPTION: Sanger_script split the data sequencing to allow each user 
+#            get access of the sample information
 #
 #
 #================================================================
@@ -37,7 +38,7 @@ usage : $0 <-f file> <-r folder> -o <output_dir> [options]
 	Mandatory input data:
 	-f | Path to sanger run configuration file.ej. /Path/to/GN18-176A.txt
 	-r | Path to sanger run folder. ej. /Path/to/GN18-176A
-	-o | Output dir. ej. /path/to/sanger_seq_users
+	-o | Output on remote dir. ej. /path/to/sanger_seq_users
 	-v | version
 	-h | display usage message
 example: ./sanger_script.sh -f ../sanger_seq/GN18-176A.txt -r ../sanger_seq/GN18-176A -o ../sanger_seq_users/
@@ -84,9 +85,14 @@ error(){
 script_dir=$(dirname $(readlink -f $0))
 cwd="$(pwd)"
 is_verbose=false
-samba_share_template=/home/smonzon/Documents/desarrollo/sanger_script/samba/template.conf
-samba_share_dir=/home/smonzon/Documents/desarrollo/sanger_script/samba/shares
+samba_share_template=/home/smonzon/Documents/desarrollo/sanger_script/template.conf
+remote_samba_share_dir=/home/smonzon/Documents/desarrollo/sanger_script/samba/shares
+tmp_share_dir=/home/smonzon/Documents/desarrollo/sanger_script/tmp/shares
 template_email=/home/smonzon/Documents/desarrollo/sanger_script/template_mail.htm
+REMOTE_USER="bioinfo"
+#REMOTE_SAMBA_SERVER="barbarroja.isciii.es"
+REMOTE_SAMBA_SERVER="localhost"
+
 #SET COLORS
 
 YELLOW='\033[0;33m'
@@ -109,7 +115,7 @@ while getopts $options opt; do
 			run_folder=$OPTARG
 			;;
 		o )
-			output_dir=$OPTARG
+			remote_ouput_dir=$OPTARG
 			;;
 		V )
 			is_verbose=true
@@ -189,27 +195,42 @@ while read -r line ;do
     well=$(echo $line | cut -d "," -f 1)
     sample_name=$(echo $line | cut -d "," -f 2)
 
-    if [ ! -d $output_dir/$date"_"$run_name"_"$allowed_users ]; then
-        mkdir -p $output_dir/$date"_"$run_name"_"$allowed_users
+##  if [ ! -d $output_dir/$date"_"$run_name"_"$allowed_users ]; then
+##        mkdir -p $output_dir/$date"_"$run_name"_"$allowed_users
+##        echo "Creating directory for $date"_"$run_name"_"$allowed_users"
+##	echo $emails > $output_dir/$date"_"$run_name"_"$allowed_users/user_allowed.txt
+##    fi
+    folder_name=tmp/$date"_"$run_name"_"$allowed_users
+    #if [ ! -d tmp/$date"_"$run_name"_"$allowed_users ]; then
+    if [ ! -d $folder_name ]; then
+        mkdir -p $folder_name
         echo "Creating directory for $date"_"$run_name"_"$allowed_users"
-	echo $emails > $output_dir/$date"_"$run_name"_"$allowed_users/user_allowed.txt
+        echo $emails > $folder_name/user_allowed.txt
     fi
-    folder_name=$date"_"$run_name"_"$allowed_users
-    cp $run_folder/*$sample_name* $output_dir/$folder_name || error ${LINENO} $(basename $0) "Sequencing files couldn't be copied to samba share folder"
+    
+#    cp $run_folder/*$sample_name* $output_dir/$folder_name || error ${LINENO} $(basename $0) "Sequencing files couldn't be copied to samba share folder"
+    cp $run_folder/*$sample_name* $folder_name || error ${LINENO} $(basename $0) "Sequencing files couldn't be copied to tmp folder"
 #done < $sanger_file
 
 done <<<"$var_file"
 
-## Create samba shares.
+rsync -vr tmp/ $REMOTE_USER@$REMOTE_SAMBA_SERVER:$remote_ouput_dir/
 
-for folder in $(ls $output_dir | grep $run_name);do
+## Create samba shares.
+if [ ! -d tmp_samba_share_dir]; then
+    mkdir -p tmp_samba_share_dir
+fi
+for folder in $(ls tmp | grep $run_name);do
+#for folder in $(ls $output_dir | grep $run_name);do
 	echo "Processing folder: $folder"
 	users=$(echo $folder | cut -d "_" -f3- | sed 's/_/,/g')
 	echo "Folder $folder is accesible for users: $users"
-	sed "s/##FOLDER##/$folder/g" $samba_share_template | sed "s/##USERS##/$users/g" > $samba_share_dir/$folder".conf"
-	echo "include = $samba_share_dir/${folder}.conf" >> $samba_share_dir/includes.conf
-	emails=$(cat $output_dir/$folder/user_allowed.txt)
-	## samba service restart
+	sed "s/##FOLDER##/$folder/g" $samba_share_template | sed "s/##USERS##/$users/g" > $tmp_samba_share_dir/$folder".conf"
+	echo "include = $samba_share_dir/${folder}.conf" >> $tmp_samba_share_dir/includes.conf
+	emails=$(cat tmp/$folder/user_allowed.txt)
+    scp lchapado@barbarroja.isciii.es:$samba_share_dir/$folder".conf" /etc/samba/
+    emails=$(cat tmp/$folder/user_allowed.txt)
+    ## samba service restart
 
 	echo "Restarting samba service"
 	/sbin/service smb restart
@@ -227,6 +248,7 @@ for folder in $(ls $output_dir | grep $run_name);do
 	rm mail.tmp
 
 done
-
+# copy shared configuration files to remote
+rsync -vr tmp_share_dir $REMOTE_USER@$REMOTE_SAMBA_SERVER:$remote_samba_share_dir/
 echo "${run_name}.txt" >> $script_dir/run_processed
 echo "File $sanger_file process has been completed"
